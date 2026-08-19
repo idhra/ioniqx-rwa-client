@@ -1,0 +1,13 @@
+ioniqx-rwa-client
+Copyright 2026 Idhra Inc.
+
+This product includes software developed at Idhra Inc.
+
+Design lineage (independent implementations, not forks):
+  - Upside RWA Token Program - the four-program hook-driven suite
+    (Access Control, Transfer Restrictions, Tokenlock, Dividends).
+  - Solana sRFC 00020, proposed RWA/Security Token Standard.
+  - sRFC "RWA Asset Classification and Data Discovery"
+    https://github.com/solana-foundation/SRFCs/discussions/15
+
+Built on solana-ruby-kit (MIT), https://github.com/pzupan/solana-ruby-kit
