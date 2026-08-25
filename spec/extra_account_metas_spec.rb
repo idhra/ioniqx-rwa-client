@@ -26,9 +26,17 @@ require "ioniqx_rwa_client/extra_account_metas"
 #      an RPC endpoint to fetch the validation account. Gated behind
 #      IONIQX_GOLDEN_DEVNET=1 so the offline suite stays hermetic.
 #
-# To regenerate the devnet fixture, run the TS reference resolver
-# (scripts/emit_golden_vectors.ts in the Rust workspace) against the same mint
-# and commit its JSON output to spec/fixtures/.
+# To generate the devnet fixture, run the TS reference resolver against a mint
+# whose transfer hook validation account exists on the target cluster:
+#
+#   cd scripts && npm install
+#   IONIQX_HOOK_PROGRAM_ID=... IONIQX_MINT=... IONIQX_SOURCE=... \
+#   IONIQX_DESTINATION=... IONIQX_AUTHORITY=... npm run emit
+#
+# then commit spec/fixtures/golden_devnet_transfer_hook.json. The fixture does
+# not exist yet: it needs a deployed transfer hook with an initialized
+# ExtraAccountMetaList, and the ioniqx Anchor workspace (BUILD.md §1-2) is not
+# built. Until then this block is inert even with IONIQX_GOLDEN_DEVNET=1.
 
 RSpec.describe IoniqxRwa::ExtraAccountMetas do
   # ---- helpers to build a validation-account byte buffer by hand -----------
@@ -285,6 +293,66 @@ RSpec.describe IoniqxRwa::ExtraAccountMetas do
       end
     end
 
+    context "privilege de-escalation" do
+      # The reference resolver de-escalates every resolved extra against the
+      # accounts already in the list. Without it, a validation account could
+      # name an address the transaction already carries - the fee payer, say -
+      # and mark it a writable signer, and the caller would sign it.
+      it "strips signer and writable from an extra that repeats a base account" do
+        store = {}
+        # A static meta pointing at the authority, asking for both privileges.
+        records = [ extra_meta(discriminator: 0,
+                               address_config: Addresses.decode_address(Addresses.address(authority)),
+                               signer: true, writable: true) ]
+        v = validation_address_for(records, store)
+        subject = described_class.new(SpecSupport::FakeRpc.new(store))
+
+        result = subject.resolve(
+          mint: mint, source: source, destination: destination,
+          authority: authority, amount: amount, hook_program_id: hook_program_id
+        )
+
+        expect(result.first).to eq({ pubkey: authority, signer: false, writable: false })
+        expect(result.last[:pubkey]).to eq(v)
+      end
+
+      it "leaves an address the transfer does not already carry untouched" do
+        store = {}
+        records = [ extra_meta(discriminator: 0,
+                               address_config: Addresses.decode_address(Addresses.address(static_extra)),
+                               signer: true, writable: true) ]
+        validation_address_for(records, store)
+        subject = described_class.new(SpecSupport::FakeRpc.new(store))
+
+        result = subject.resolve(
+          mint: mint, source: source, destination: destination,
+          authority: authority, amount: amount, hook_program_id: hook_program_id
+        )
+
+        expect(result.first).to eq({ pubkey: static_extra, signer: true, writable: true })
+      end
+
+      it "de-escalates against earlier extras, not just the base accounts" do
+        store = {}
+        config = Addresses.decode_address(Addresses.address(static_extra))
+        records = [
+          extra_meta(discriminator: 0, address_config: config, signer: false, writable: false),
+          extra_meta(discriminator: 0, address_config: config, signer: true,  writable: true)
+        ]
+        validation_address_for(records, store)
+        subject = described_class.new(SpecSupport::FakeRpc.new(store))
+
+        result = subject.resolve(
+          mint: mint, source: source, destination: destination,
+          authority: authority, amount: amount, hook_program_id: hook_program_id
+        )
+
+        # The first entry set the ceiling at readonly non-signer.
+        expect(result[0]).to eq({ pubkey: static_extra, signer: false, writable: false })
+        expect(result[1]).to eq({ pubkey: static_extra, signer: false, writable: false })
+      end
+    end
+
     context "malformed validation data" do
       it "raises when the Execute TLV entry is absent" do
         store = {}
@@ -327,8 +395,15 @@ RSpec.describe IoniqxRwa::ExtraAccountMetas do
   # Byte-for-byte parity with @solana/kit + spl-transfer-hook. Runs only when a
   # devnet RPC + fixture are available, so the offline suite stays hermetic.
   describe "reference parity (devnet)", if: ENV["IONIQX_GOLDEN_DEVNET"] == "1" do
+    FIXTURE_PATH = "spec/fixtures/golden_devnet_transfer_hook.json"
+
     let(:fixture) do
-      JSON.parse(File.read("spec/fixtures/golden_devnet_transfer_hook.json"))
+      unless File.exist?(FIXTURE_PATH)
+        raise "#{FIXTURE_PATH} is missing - generate it with scripts/emit_golden_vectors.mjs " \
+              "(see the header of this file). It requires a deployed transfer hook."
+      end
+
+      JSON.parse(File.read(FIXTURE_PATH))
     end
 
     let(:rpc) do

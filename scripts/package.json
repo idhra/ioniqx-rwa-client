@@ -1,0 +1,13 @@
+{
+  "name": "ioniqx-rwa-client-golden-vectors",
+  "private": true,
+  "type": "module",
+  "description": "Emits the devnet transfer-hook golden fixture from the TypeScript reference resolver.",
+  "scripts": {
+    "emit": "node emit_golden_vectors.mjs"
+  },
+  "dependencies": {
+    "@solana/kit": "^7.0.0",
+    "@solana-program/token-2022": "^0.15.0"
+  }
+}

@@ -121,11 +121,18 @@ module IoniqxRwa
       # (the hook program id is index 5 in the on-chain Execute ix, but for
       #  address_config AccountKey/Program seeds we track the list the resolver
       #  itself builds, matching the offchain helper's account ordering.)
+      #
+      # All five are recorded READONLY and non-signer. That is not a
+      # description of how the transfer instruction carries them - it carries
+      # source and destination writable and the authority as a signer. It is
+      # the privilege ceiling used for de-escalation below, and the reference
+      # resolver (@solana-program/token-2022) pins it at READONLY, so matching
+      # it byte-for-byte means matching this too.
       resolved = [
-        account_meta(source,      writable: true,  signer: false),
+        account_meta(source,      writable: false, signer: false),
         account_meta(mint,        writable: false, signer: false),
-        account_meta(destination, writable: true,  signer: false),
-        account_meta(authority,   writable: false, signer: true),
+        account_meta(destination, writable: false, signer: false),
+        account_meta(authority,   writable: false, signer: false),
         account_meta(validation,  writable: false, signer: false)
       ]
 
@@ -135,7 +142,13 @@ module IoniqxRwa
 
       metas.each do |m|
         address = resolve_address(m, resolved, ix_data, hook_program_id)
-        resolved << account_meta(address, writable: m[:writable], signer: m[:signer])
+        meta    = account_meta(address, writable: m[:writable], signer: m[:signer])
+        # De-escalate against everything already in the list, so a hook cannot
+        # claim signer or writable privileges the transaction has not already
+        # granted that address. Without this a malicious or careless validation
+        # account could name the fee payer as a writable signer and have the
+        # caller sign it unknowingly.
+        resolved << de_escalate(meta, resolved)
       end
 
       extras = resolved[5..] || []
@@ -299,6 +312,21 @@ module IoniqxRwa
     # to the kit's AccountMeta value type at instruction-assembly time.
     def account_meta(pubkey, writable:, signer:)
       { pubkey: pubkey.to_s, writable: writable, signer: signer }
+    end
+
+    # Lower `meta`'s privileges to the highest already granted to the same
+    # address elsewhere in the list. An address absent from the list keeps
+    # whatever the validation account asked for - it is new to this
+    # instruction, so there is no prior grant to exceed.
+    def de_escalate(meta, existing)
+      matches = existing.select { |m| m[:pubkey] == meta[:pubkey] }
+      return meta if matches.empty?
+
+      {
+        pubkey:   meta[:pubkey],
+        writable: meta[:writable] && matches.any? { |m| m[:writable] },
+        signer:   meta[:signer]   && matches.any? { |m| m[:signer] }
+      }
     end
 
     # Response shape pinned to the kit (§5.3). `Rpc::Client#get_account_info`

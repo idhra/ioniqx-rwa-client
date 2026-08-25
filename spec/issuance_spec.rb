@@ -12,10 +12,6 @@ require "spec_helper"
 RSpec.describe IoniqxRwa::Classification::Issuance do
   Roles = Solana::Ruby::Kit::Instructions::AccountRole
 
-  REF_CREDENTIAL = "5Es4gSTWYemJxPMkWGYAi56Xzf2cSosJBRMaQaVVuxZq"
-  REF_SCHEMA     = "ASE1gwae1gBPZctkdNXdyGJcmqwPMVW9iMHqs22bJa9p"
-  REF_MINT       = "So11111111111111111111111111111111111111112"
-
   def b58(seed_byte) = Addresses.encode_address(seed_byte.chr * 32)
 
   let(:payer)     { b58(0x01) }

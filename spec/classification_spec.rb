@@ -16,12 +16,6 @@ require "spec_helper"
 #   2. Hand-built byte vectors for the Borsh payload, so a reordering of the
 #      nine positional fields fails here rather than silently mis-decoding.
 RSpec.describe IoniqxRwa::Classification do
-  # Draft §3.6 reference deployment.
-  REF_CREDENTIAL  = "5Es4gSTWYemJxPMkWGYAi56Xzf2cSosJBRMaQaVVuxZq"
-  REF_SCHEMA      = "ASE1gwae1gBPZctkdNXdyGJcmqwPMVW9iMHqs22bJa9p"
-  REF_ATTESTATION = "G6qArVxuNwL9aC3EpTY443TfVTfyFmKwQhgmnd6rht9b"
-  REF_MINT        = "So11111111111111111111111111111111111111112"
-
   # ---- helpers -------------------------------------------------------------
 
   def b58(seed_byte) = Addresses.encode_address(seed_byte.chr * 32)
@@ -490,7 +484,7 @@ RSpec.describe IoniqxRwa::Classification do
     def doc(**overrides)
       JSON.generate({
         "version" => "1", "mint" => mint,
-        "issuedAt" => "2026-08-01T00:00:00Z", "expiresAt" => "2027-08-01T00:00:00Z",
+        "issued_at" => "2026-08-01T00:00:00Z", "expires_at" => "2027-08-01T00:00:00Z",
         "manifest" => "bagaaiera...",
         "endpoints" => { "nav" => "https://rwa.ioniqx.io/nav" }
       }.merge(overrides))
@@ -509,6 +503,20 @@ RSpec.describe IoniqxRwa::Classification do
 
       expect(result).not_to be_ok
       expect(result.issues.first).to match(/mint mismatch/)
+    end
+
+    it "also accepts the reference implementation's camelCase keys" do
+      # SPEC §4.2 shows snake_case; the TS reference reads camelCase and has no
+      # test for it. Spec form is canonical, camelCase is tolerated.
+      camel = JSON.generate({
+        "version" => "1", "mint" => mint,
+        "issuedAt" => "2026-08-01T00:00:00Z", "expiresAt" => "2027-08-01T00:00:00Z",
+        "endpoints" => {}
+      })
+      result = described_class.parse_discovery_document(camel, mint: mint, now: now)
+
+      expect(result).to be_ok
+      expect(result.document.expires_at).to eq("2027-08-01T00:00:00Z")
     end
 
     it "rejects invalid JSON, a non-object, and an unsupported version" do

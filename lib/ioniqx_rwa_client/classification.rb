@@ -520,21 +520,28 @@ module IoniqxRwa
                                      issues: ["discovery document mint mismatch (expected #{mint})"].freeze)
         end
 
-        unless doc["issuedAt"].is_a?(String) && doc["expiresAt"].is_a?(String)
+        # The draft's §4.2 example uses snake_case; the TypeScript reference
+        # reads camelCase and has no test covering it, so the two disagree.
+        # The spec wins as canonical, but both are accepted so documents the
+        # reference already emitted still parse.
+        issued_at_raw  = doc["issued_at"]  || doc["issuedAt"]
+        expires_at_raw = doc["expires_at"] || doc["expiresAt"]
+
+        unless issued_at_raw.is_a?(String) && expires_at_raw.is_a?(String)
           return DiscoveryResult.new(ok: false, document: nil,
-                                     issues: ["missing issuedAt/expiresAt"].freeze)
+                                     issues: ["missing issued_at/expires_at"].freeze)
         end
 
         expires_at = begin
-          Time.parse(doc["expiresAt"]).to_i
+          Time.parse(expires_at_raw).to_i
         rescue ArgumentError, TypeError
           nil
         end
         if expires_at.nil?
           return DiscoveryResult.new(ok: false, document: nil,
-                                     issues: [%(unparseable expiresAt "#{doc["expiresAt"]}")].freeze)
+                                     issues: [%(unparseable expires_at "#{expires_at_raw}")].freeze)
         end
-        issues << "discovery document expired at #{doc["expiresAt"]}" if expires_at <= now
+        issues << "discovery document expired at #{expires_at_raw}" if expires_at <= now
 
         endpoints = {}
         if doc["endpoints"].is_a?(Hash)
@@ -552,8 +559,8 @@ module IoniqxRwa
           document: DiscoveryDocument.new(
             version:    doc["version"],
             mint:       doc["mint"],
-            issued_at:  doc["issuedAt"],
-            expires_at: doc["expiresAt"],
+            issued_at:  issued_at_raw,
+            expires_at: expires_at_raw,
             manifest:   doc["manifest"].is_a?(String) ? doc["manifest"] : nil,
             endpoints:  endpoints.freeze
           )
