@@ -19,9 +19,11 @@ reimplement any of it. It adds only the layer the kit has no notion of:
 
 **Unaudited. Not for production.** See [SECURITY.md](SECURITY.md).
 
-The five Anchor programs are not yet deployed, so `idl/` is empty and
-`Config::PROGRAM_IDS` is unpopulated. The transfer-hook resolver and the
-classification reader are complete, with golden-vector specs that run offline.
+The five Anchor programs are not yet deployed to a public cluster, so `idl/` is
+empty and `Config::PROGRAM_IDS` is unpopulated. Hook-aware transfer
+construction, the transfer-hook resolver, and the classification reader are
+complete, with specs that run offline — including one pinned against an account
+list `ioniqx-transfer-restrictions` itself produced and Token-2022 accepted.
 
 ## Install
 
@@ -29,10 +31,42 @@ classification reader are complete, with golden-vector specs that run offline.
 gem "ioniqx-rwa-client"
 ```
 
-## Transfer-hook resolution
+## Transferring a hook-gated token
+
+BUILD.md §2.7 Section 4.3: *"Every client that transfers this token MUST build
+the instruction with hook-aware resolution. A plain `transferChecked` will omit
+the extra accounts and fail."*
+
+That failure is not obvious when it happens — Token-2022 cannot invoke the hook
+without the accounts, so the transaction aborts complaining about a missing
+account, naming nothing about the hook. Use this and it is handled:
 
 ```ruby
 rpc      = Solana::Ruby::Kit::Rpc::Client.new(url: "https://api.devnet.solana.com")
+transfer = IoniqxRwa::Transfer.new(rpc)
+
+instruction = transfer.transfer_checked(
+  mint:        mint_address,
+  source:      source_token_account,
+  destination: destination_token_account,
+  authority:   owner_address,
+  amount:      1_000
+)
+```
+
+The hook program id and the mint's decimals are read off the mint rather than
+taken as arguments; both are things a caller can get wrong in a way that only
+shows up as a rejected transaction. A mint that declares no hook gets a plain
+four-account transfer, so every SPL transfer can be routed through this without
+branching on which mints happen to be restricted.
+
+Pass `hook_program_id:` or `decimals:` explicitly to skip the mint read.
+
+### Resolving the extra accounts directly
+
+If you are assembling the transfer instruction yourself:
+
+```ruby
 resolver = IoniqxRwa::ExtraAccountMetas.new(rpc)
 
 extras = resolver.resolve(
@@ -87,6 +121,31 @@ not revocation, is the load-bearing control**.
 
 The attestation address derives from `(credential, schema, mint)` alone, so
 `rwa.attestation` in the metadata is a hint and never the authority.
+
+## Issuance (write side)
+
+Encodes a `rwa.classification.v1` payload and builds the SAS `createAttestation`
+instruction that carries it. Layer 1 (the `rwa.*` mint metadata) is written by
+the mint creation path, not here.
+
+```ruby
+result = IoniqxRwa::Classification::Issuance.attest(
+  payer: payer, authority: authorized_signer,
+  credential: transfer_agent_credential, schema: schema_pda,
+  mint: mint, expires_at: 90.days.from_now.to_i,
+  asset_class: "real-estate", claim: "equity", subclass: "multifamily",
+  jurisdiction: "US-TX", issuer_lei: lei,
+  property_commit: commit, discovery_url: url, discovery_signer: signing_key
+)
+
+result[:instruction]   # append to a transaction
+result[:attestation]   # the address it will create
+```
+
+Expiry is mandatory and short by design: revocation deletes the account and is
+indistinguishable from absence, so lapse — not revocation — is the real control.
+The draft also warns the attester SHOULD NOT be the issuer; self-attestation is
+permitted but must be detectable, which `resolve_trust` surfaces.
 
 ## Tests
 

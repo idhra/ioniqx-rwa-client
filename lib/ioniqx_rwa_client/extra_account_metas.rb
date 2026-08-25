@@ -36,9 +36,19 @@ module IoniqxRwa
   #
   # This resolver handles the offchain case: static addresses, PDAs off the hook
   # program, PDAs off another already-listed program, and the four seed variants.
-  # It does NOT chase AccountData seeds whose source account is itself one of the
-  # not-yet-fetched extra accounts (rare, and flagged with a clear raise) — that
-  # would require recursive fetching mid-resolution.
+  #
+  # That includes an AccountData seed whose source is itself an extra resolved
+  # earlier in the same pass — which is not a corner case here. The ioniqx hook
+  # derives each counterparty's attestation address as a PDA of the Solana
+  # Attestation Service (an extra) seeded by reads into the offering config
+  # (another extra). A resolver that only followed seeds into the five initial
+  # accounts would produce the wrong list for every ioniqx RWA mint. Account
+  # data is fetched on demand when a seed asks for it, rather than eagerly for
+  # every resolved account as the Rust helper does; the resolution is identical
+  # and it costs fewer RPC round trips.
+  #
+  # spec/client_resolution_spec.rb pins the output against an account list the
+  # program itself produced and Token-2022 accepted.
   class ExtraAccountMetas
     Addresses = Solana::Ruby::Kit::Addresses
     Codecs    = Solana::Ruby::Kit::Codecs

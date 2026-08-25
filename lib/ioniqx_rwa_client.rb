@@ -7,6 +7,7 @@ require_relative "ioniqx_rwa_client/version"
 require_relative "ioniqx_rwa_client/errors"
 require_relative "ioniqx_rwa_client/config"
 require_relative "ioniqx_rwa_client/extra_account_metas"
+require_relative "ioniqx_rwa_client/transfer"
 require_relative "ioniqx_rwa_client/classification"
 
 # Ruby client for the ioniqx RWA on-chain programs.
