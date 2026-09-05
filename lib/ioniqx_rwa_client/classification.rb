@@ -719,9 +719,14 @@ module IoniqxRwa
     # so the read path is unmistakably separate from anything transactional.
     class Reader
       # @param rpc [Solana::Ruby::Kit::Rpc::Client]
-      def initialize(rpc, program_id: Config::SAS_PROGRAM_ID)
+      # @param commitment [Symbol, nil] commitment for the reads below; nil
+      #   sends none and takes the endpoint's default. See
+      #   Config::DEFAULT_COMMITMENT for why the default is not that.
+      def initialize(rpc, program_id: Config::SAS_PROGRAM_ID,
+                     commitment: Config::DEFAULT_COMMITMENT)
         @rpc = rpc
         @program_id = program_id
+        @commitment = commitment
       end
 
       # Fetch the attestation a given credential has issued about `mint`.
@@ -766,7 +771,9 @@ module IoniqxRwa
 
       # Same pinned shape as ExtraAccountMetas#fetch_account_data!.
       def fetch(address)
-        resp  = @rpc.get_account_info(Addresses.address(address.to_s).to_s, encoding: "base64")
+        options = { encoding: "base64" }
+        options[:commitment] = @commitment if @commitment
+        resp  = @rpc.get_account_info(Addresses.address(address.to_s).to_s, **options)
         value = resp.respond_to?(:value) ? resp.value : resp
         return nil if value.nil?
 

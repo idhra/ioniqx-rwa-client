@@ -62,6 +62,23 @@ branching on which mints happen to be restricted.
 
 Pass `hook_program_id:` or `decimals:` explicitly to skip the mint read.
 
+### Commitment
+
+Every account read this gem makes goes out at `confirmed`, not at the RPC's own
+`finalized` default. The accounts it reads are ones the caller was just handed —
+the mint being transferred, the validation account written when that mint was
+configured — and finality is roughly 32 slots behind the tip, so a finalized
+read of a mint issued seconds ago returns nothing and the caller sees
+`account not found` for an account that plainly exists.
+
+```ruby
+IoniqxRwa::Transfer.new(rpc, commitment: :finalized)  # slower, stricter
+IoniqxRwa::Transfer.new(rpc, commitment: nil)         # send none; endpoint decides
+```
+
+`ExtraAccountMetas` and `Classification::Reader` take the same argument, and a
+`Transfer` passes its own down to the resolver it builds.
+
 ### Resolving the extra accounts directly
 
 If you are assembling the transfer instruction yourself:

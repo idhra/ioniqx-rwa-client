@@ -86,9 +86,16 @@ module IoniqxRwa
 
     # @param rpc [Solana::Ruby::Kit::Rpc::Client] used to fetch validation +
     #   (when AccountData seeds are present) referenced account data.
-    def initialize(rpc)
+    # @param commitment [Symbol, nil] commitment for those reads; nil sends
+    #   none and takes the endpoint's default. See Config::DEFAULT_COMMITMENT
+    #   for why the default is not the endpoint's.
+    def initialize(rpc, commitment: Config::DEFAULT_COMMITMENT)
       @rpc = rpc
+      @commitment = commitment
     end
+
+    # The commitment this resolver reads at.
+    attr_reader :commitment
 
     # Derive the validation account (ExtraAccountMetaList PDA) for a mint.
     #
@@ -346,7 +353,7 @@ module IoniqxRwa
     # The Hash / bare-string branches stay only to tolerate a caller-supplied
     # RPC double.
     def fetch_account_data!(pubkey)
-      resp  = @rpc.get_account_info(Addresses.address(pubkey).to_s, encoding: "base64")
+      resp  = get_account_info(Addresses.address(pubkey).to_s)
       value = resp.respond_to?(:value) ? resp.value : resp
       raise ResolutionError, "account not found: #{pubkey}" if value.nil?
 
@@ -359,6 +366,14 @@ module IoniqxRwa
       raise ResolutionError, "account #{pubkey} returned no data" if b64.nil?
 
       Base64.decode64(b64)
+    end
+
+    # `commitment` is passed only when set, so an RPC double with the older
+    # two-argument signature keeps working.
+    def get_account_info(address)
+      options = { encoding: "base64" }
+      options[:commitment] = @commitment if @commitment
+      @rpc.get_account_info(address, **options)
     end
 
     # Codec#decode returns a [value, bytes_consumed] tuple, not the value.

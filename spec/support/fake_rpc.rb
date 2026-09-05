@@ -12,12 +12,20 @@ module SpecSupport
     Value = Struct.new(:data)
     Resp  = Struct.new(:value)
 
+    # Every commitment this double was asked for, in call order. The gem
+    # reading at the endpoint's default rather than the caller's commitment is
+    # how a freshly issued mint reads back as "account not found", so which
+    # commitment goes out is behaviour worth asserting.
+    attr_reader :commitments
+
     # @param store [Hash{String => String}] base58 pubkey => raw binary data
     def initialize(store)
       @store = store
+      @commitments = []
     end
 
-    def get_account_info(pubkey, encoding: "base64")
+    def get_account_info(pubkey, encoding: "base64", commitment: nil)
+      @commitments << commitment
       raw = @store[pubkey.to_s]
       return Resp.new(nil) if raw.nil?
 

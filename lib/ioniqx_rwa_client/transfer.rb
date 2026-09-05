@@ -60,10 +60,19 @@ module IoniqxRwa
     MintInfo = Struct.new(:decimals, :hook_program_id, keyword_init: true)
 
     # @param rpc [Solana::Ruby::Kit::Rpc::Client]
-    def initialize(rpc)
-      @rpc      = rpc
-      @resolver = ExtraAccountMetas.new(rpc)
+    # @param commitment [Symbol, nil] commitment for the mint and validation
+    #   reads below; nil sends none and takes the endpoint's default. The
+    #   default is `confirmed` and not the endpoint's `finalized` because a
+    #   mint issued seconds ago is not finalized yet — see
+    #   Config::DEFAULT_COMMITMENT.
+    def initialize(rpc, commitment: Config::DEFAULT_COMMITMENT)
+      @rpc        = rpc
+      @commitment = commitment
+      @resolver   = ExtraAccountMetas.new(rpc, commitment: commitment)
     end
+
+    # The commitment this client reads at.
+    attr_reader :commitment
 
     # A `TransferChecked` instruction carrying every account the mint's transfer
     # hook requires.
@@ -180,7 +189,9 @@ module IoniqxRwa
 
     # Same response shape the resolver pins (BUILD.md §5.3).
     def fetch_account_data!(pubkey)
-      resp  = @rpc.get_account_info(Addresses.address(pubkey.to_s).to_s, encoding: "base64")
+      options = { encoding: "base64" }
+      options[:commitment] = @commitment if @commitment
+      resp  = @rpc.get_account_info(Addresses.address(pubkey.to_s).to_s, **options)
       value = resp.respond_to?(:value) ? resp.value : resp
       raise TransferError, "account not found: #{pubkey}" if value.nil?
 
