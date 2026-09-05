@@ -54,13 +54,31 @@ instruction = transfer.transfer_checked(
 )
 ```
 
-The hook program id and the mint's decimals are read off the mint rather than
-taken as arguments; both are things a caller can get wrong in a way that only
-shows up as a rejected transaction. A mint that declares no hook gets a plain
-four-account transfer, so every SPL transfer can be routed through this without
-branching on which mints happen to be restricted.
+The hook program id, the mint's decimals, and the token program that owns the
+mint are all read off the mint rather than taken as arguments; each is
+something a caller can get wrong in a way that only shows up as a rejected
+transaction. A mint that declares no hook gets a plain four-account transfer,
+so every SPL transfer can be routed through this without branching on which
+mints happen to be restricted.
 
-Pass `hook_program_id:` or `decimals:` explicitly to skip the mint read.
+That includes original-SPL-Token mints. ioniqx issues its own tokens under
+Token-2022, because that is where transfer hooks live, but nothing follows from
+that about the mints it has to *move*: USDC, the settlement asset, is a
+`TokenkegQ…` mint on every cluster. The instruction goes to whichever program
+owns the mint, and a mint owned by neither token program is refused rather than
+guessed at.
+
+Pass `token_program_id:`, `hook_program_id:` or `decimals:` explicitly to
+override what the mint says. A caller that has already read the mint — which it
+generally has, since associated token accounts are derived under the mint's own
+program — can pass `mint_info:` to skip the second read:
+
+```ruby
+info = transfer.mint_info(mint_address)
+ata  = # ...derive under info.token_program_id...
+
+transfer.transfer_checked(mint: mint_address, source: ata, ..., mint_info: info)
+```
 
 ### Commitment
 

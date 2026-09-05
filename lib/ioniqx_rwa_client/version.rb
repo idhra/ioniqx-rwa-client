@@ -2,5 +2,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 module IoniqxRwa
-  VERSION = "0.1.2"
+  VERSION = "0.1.3"
 end

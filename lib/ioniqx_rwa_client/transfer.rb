@@ -30,6 +30,14 @@ module IoniqxRwa
 
     TOKEN_2022_PROGRAM_ID = ExtraAccountMetas::TOKEN_2022_PROGRAM_ID
 
+    # The original SPL Token program. Still the owner of most of what a client
+    # will be asked to move — USDC is one of its mints on every cluster — so a
+    # client that assumes Token-2022 because ioniqx's own mints use it cannot
+    # settle a trade or pay a distribution.
+    TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+
+    TOKEN_PROGRAM_IDS = [ TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID ].freeze
+
     # `TokenInstruction::TransferChecked` — a single-byte index, not an Anchor
     # discriminator.
     TRANSFER_CHECKED = 12
@@ -57,7 +65,7 @@ module IoniqxRwa
       def self.error_code = :IONIQX__TRANSFER_BUILD_FAILED
     end
 
-    MintInfo = Struct.new(:decimals, :hook_program_id, keyword_init: true)
+    MintInfo = Struct.new(:decimals, :hook_program_id, :token_program_id, keyword_init: true)
 
     # @param rpc [Solana::Ruby::Kit::Rpc::Client]
     # @param commitment [Symbol, nil] commitment for the mint and validation
@@ -88,15 +96,26 @@ module IoniqxRwa
     # @param amount [Integer]       in base units
     # @param decimals [Integer,nil] read from the mint when omitted
     # @param hook_program_id [String,nil] read from the mint when omitted
+    # @param token_program_id [String,nil] read from the mint's owner when
+    #   omitted. Not defaulted to Token-2022: the caller's own mints being
+    #   Token-2022 says nothing about the mint in front of it, and a
+    #   TransferChecked sent to the wrong token program fails.
+    # @param mint_info [MintInfo,nil] a MintInfo already read for this mint.
+    #   Supply it to avoid a second read — a caller generally has to look the
+    #   mint up before calling, because the associated token accounts are
+    #   derived under the mint's own token program.
     # @return [Solana::Ruby::Kit::Instructions::Instruction]
     def transfer_checked(mint:, source:, destination:, authority:, amount:,
                          decimals: nil, hook_program_id: nil,
-                         token_program_id: TOKEN_2022_PROGRAM_ID)
+                         token_program_id: nil, mint_info: nil)
       raise TransferError, "amount must be a non-negative integer" unless amount.is_a?(Integer) && amount >= 0
 
-      info      = mint_info(mint) if decimals.nil? || hook_program_id.nil?
-      decimals  = decimals.nil? ? info.decimals : decimals
-      hook      = hook_program_id.nil? ? info&.hook_program_id : hook_program_id
+      info = mint_info
+      info ||= self.mint_info(mint) if decimals.nil? || hook_program_id.nil? || token_program_id.nil?
+
+      decimals ||= info.decimals
+      hook       = hook_program_id || info&.hook_program_id
+      token_program_id ||= info&.token_program_id || TOKEN_2022_PROGRAM_ID
 
       accounts = [
         meta(source,      writable: true,  signer: false),
@@ -130,15 +149,28 @@ module IoniqxRwa
     # permanent, not "not yet".
     def hook_program_for(mint) = mint_info(mint).hook_program_id
 
-    # Decimals and hook program in one read, because a caller who gets either
-    # wrong finds out only when the transaction is rejected.
+    # The token program that owns a mint — `TOKEN_PROGRAM_ID` or
+    # `TOKEN_2022_PROGRAM_ID`. Every account this mint has is derived and
+    # operated under it.
+    def token_program_for(mint) = mint_info(mint).token_program_id
+
+    # Decimals, hook program, and owning token program in one read, because a
+    # caller who gets any of the three wrong finds out only when the
+    # transaction is rejected.
     def mint_info(mint)
-      data = fetch_account_data!(mint)
+      data, owner = fetch_account!(mint)
       raise TransferError, "#{mint} is not a mint account" if data.bytesize < MINT_BASE_LEN
 
+      if owner && !TOKEN_PROGRAM_IDS.include?(owner)
+        raise TransferError, "#{mint} is owned by #{owner}, which is not a token program"
+      end
+
       MintInfo.new(
-        decimals:        data.getbyte(DECIMALS_OFFSET),
-        hook_program_id: transfer_hook_program(data)
+        decimals:         data.getbyte(DECIMALS_OFFSET),
+        hook_program_id:  transfer_hook_program(data),
+        # nil when the RPC (or a double) did not report an owner; callers fall
+        # back to Token-2022, which is what this client used to assume outright.
+        token_program_id: owner
       )
     end
 
@@ -187,8 +219,15 @@ module IoniqxRwa
       end
     end
 
-    # Same response shape the resolver pins (BUILD.md §5.3).
-    def fetch_account_data!(pubkey)
+    def fetch_account_data!(pubkey) = fetch_account!(pubkey).first
+
+    # Same response shape the resolver pins (BUILD.md §5.3), plus the owner:
+    # for a mint that is the token program it belongs to, which decides both
+    # the program a transfer is sent to and the addresses its accounts have.
+    #
+    # @return [Array(String, String|nil)] raw data, owner program (nil when the
+    #   response carries none, as a minimal RPC double may not).
+    def fetch_account!(pubkey)
       options = { encoding: "base64" }
       options[:commitment] = @commitment if @commitment
       resp  = @rpc.get_account_info(Addresses.address(pubkey.to_s).to_s, **options)
@@ -199,7 +238,16 @@ module IoniqxRwa
       b64, _encoding = encoded.is_a?(Array) ? encoded : [ encoded, "base64" ]
       raise TransferError, "account #{pubkey} returned no data" if b64.nil?
 
-      Base64.decode64(b64)
+      # A Struct answers to #[] and then raises on an unknown member, so a
+      # double built from one is only safe to subscript when it is a Hash.
+      owner =
+        if value.respond_to?(:owner)
+          value.owner
+        elsif value.is_a?(Hash)
+          value["owner"] || value[:owner]
+        end
+
+      [ Base64.decode64(b64), owner&.to_s ]
     end
   end
 end
