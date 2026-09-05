@@ -30,7 +30,7 @@ Gem::Specification.new do |spec|
   # Floored at 7.1.1.1: earlier releases left the Codecs helper surface private
   # and did not declare their own bigdecimal dependency, so the kit did not even
   # load on Ruby 3.4. Both are fixed there.
-  spec.add_dependency "solana-ruby-kit", ">= 7.1.1.1", "< 8"
+  spec.add_dependency "solana-ruby-kit", ">= 7.1"
 
   spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "rspec", "~> 3.13"
