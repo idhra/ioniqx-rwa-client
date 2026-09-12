@@ -2,16 +2,36 @@
 # SPDX-License-Identifier: Apache-2.0
 
 module IoniqxRwa
-  # Program ids per cluster. Populated from `anchor keys list` once the
-  # ioniqx-rwa workspace (BUILD.md §1-2) is built and deployed; devnet first.
+  # Program ids per cluster, and the commitment every read here uses.
   module Config
     CLUSTERS = %i[localnet devnet mainnet].freeze
 
+    # Only where a program is actually deployed. An address listed for a
+    # cluster that has none is worse than an absent one: a caller builds an
+    # instruction to it, the runtime reports an account that does not exist,
+    # and nothing in that failure says the program was never there.
+    #
+    # The transfer hook is live on devnet and is what the LiteSVM suite loads
+    # on localnet. The other four ioniqx programs have addresses reserved in
+    # ioniqx-rwa's Anchor.toml and are deployed nowhere, so they are not here.
     PROGRAM_IDS = {
-      localnet: {},
-      devnet:   {},
-      mainnet:  {}
+      localnet: {
+        transfer_restrictions: "2TYjyHt3XKoHJ7q217YLGiz1sCHYiLD64sioJqfQuWPK"
+      },
+      devnet: {
+        transfer_restrictions: "2TYjyHt3XKoHJ7q217YLGiz1sCHYiLD64sioJqfQuWPK"
+      },
+      mainnet: {}
     }.freeze
+
+    # The program id for a cluster, or nil where nothing is deployed.
+    #
+    # Nil rather than a raise: "not deployed on this cluster" is an ordinary
+    # answer a caller can act on, and mainnet will keep giving it until there
+    # is something true to say.
+    def self.program_id(program, cluster:)
+      PROGRAM_IDS.fetch(cluster.to_sym, {})[program.to_sym]
+    end
 
     # Solana Attestation Service — used read-side by Classification (BUILD.md
     # §2.6 Layer 2). Same address on every cluster.

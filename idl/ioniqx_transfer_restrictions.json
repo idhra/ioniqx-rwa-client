@@ -1,0 +1,2256 @@
+{
+  "address": "2TYjyHt3XKoHJ7q217YLGiz1sCHYiLD64sioJqfQuWPK",
+  "metadata": {
+    "name": "ioniqx_transfer_restrictions",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Token-2022 transfer hook gating RWA transfers on SAS qualified-investor attestations (BUILD.md 2.7)"
+  },
+  "instructions": [
+    {
+      "name": "clear_redemption_marker",
+      "docs": [
+        "Withdraws the authorisation and returns the rent.",
+        "",
+        "The marker is what makes the hook accept a redemption leg, so a notice",
+        "that is settled, cancelled or superseded has to take its marker with",
+        "it — an authorisation that outlives its notice is a second redemption",
+        "nobody asked for."
+      ],
+      "discriminator": [
+        13,
+        13,
+        90,
+        200,
+        33,
+        68,
+        165,
+        186
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Receives the marker's rent back."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "holder"
+        },
+        {
+          "name": "offering_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "redemption_marker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "holder"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "execute",
+      "docs": [
+        "The hook body. Token-2022 CPIs into it on every transfer of a gated",
+        "mint; returning an error aborts the whole transfer atomically.",
+        "",
+        "Read-and-validate only (§2.7 Section 4.5). It writes nothing, emits no",
+        "event, and makes no CPI — every account it touches is borrowed",
+        "immutably, so there is no reentrancy surface and no per-transfer log",
+        "cost. The audit trail for transfers is the Token-2022 transfer itself,",
+        "which the Rails chain listener already consumes."
+      ],
+      "discriminator": [
+        105,
+        37,
+        101,
+        197,
+        75,
+        251,
+        102,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "source_token",
+          "docs": [
+            "`mint` with a transfer in flight."
+          ]
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "destination_token"
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "asserted about the token account's own owner, not about this account,",
+            "so it is unused — present because the interface passes it."
+          ]
+        },
+        {
+          "name": "extra_account_meta_list",
+          "docs": [
+            "the handler; it sits ahead of the config in the wire order, so an",
+            "Anchor seeds constraint here could not reach the recorded bump."
+          ]
+        },
+        {
+          "name": "offering_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sas_program",
+          "docs": [
+            "attestation PDAs can be declared as external PDAs against it."
+          ],
+          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG"
+        },
+        {
+          "name": "destination_attestation",
+          "docs": [
+            "`sas::read`."
+          ]
+        },
+        {
+          "name": "source_attestation",
+          "docs": [
+            "configured for two-sided gating."
+          ]
+        },
+        {
+          "name": "instructions_sysvar",
+          "docs": [
+            "sysvar; read through `load_instruction_at_checked`, which validates the",
+            "data it parses."
+          ]
+        },
+        {
+          "name": "ptp_counter",
+          "docs": [
+            "The §7704 accumulator. The hook's only write."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  116,
+                  112,
+                  45,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "redemption_marker",
+          "docs": [
+            "empty account, which is how the hook tells a redemption from a transfer.",
+            "When it does exist it is verified as this program's PDA before it is",
+            "read."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_extra_account_meta_list",
+      "docs": [
+        "Creates the `ExtraAccountMetaList` PDA for a mint (§2.7 Section 4.2).",
+        "",
+        "Called once per mint, after its offering config exists. Until it exists",
+        "every transfer of the mint fails in Token-2022's account resolution,",
+        "which is the safe direction: a gated mint that cannot resolve its hook",
+        "accounts moves nothing."
+      ],
+      "discriminator": [
+        92,
+        197,
+        174,
+        197,
+        41,
+        124,
+        19,
+        3
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "extra_account_meta_list",
+          "docs": [
+            "Anchor account — `init` here allocates it and writes no discriminator.",
+            "Address is pinned by the seeds, which are the ones",
+            "`spl_transfer_hook_interface::get_extra_account_metas_address` derives."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  120,
+                  116,
+                  114,
+                  97,
+                  45,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_offering_config",
+      "docs": [
+        "Creates the offering config for a mint and pins its trusted credential,",
+        "schema, and acceptance policy.",
+        "",
+        "Gated on the mint authority rather than on whoever calls first. The PDA",
+        "address is a pure function of the mint, so an open initializer would let",
+        "anyone front-run an issuer and install a permissive policy on their",
+        "mint before they configured it."
+      ],
+      "discriminator": [
+        33,
+        36,
+        240,
+        216,
+        43,
+        16,
+        108,
+        135
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "The issuer. Must hold the mint authority — see",
+            "`initialize_offering_config` for why this is not open."
+          ],
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "credential",
+          "type": "pubkey"
+        },
+        {
+          "name": "schema",
+          "type": "pubkey"
+        },
+        {
+          "name": "policy",
+          "type": {
+            "defined": {
+              "name": "OfferingPolicy"
+            }
+          }
+        },
+        {
+          "name": "structure",
+          "type": {
+            "defined": {
+              "name": "StructureBranch"
+            }
+          }
+        },
+        {
+          "name": "eligibility",
+          "type": {
+            "defined": {
+              "name": "EligibilityGate"
+            }
+          }
+        },
+        {
+          "name": "halted",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "initialize_ptp_counter",
+      "docs": [
+        "Creates the §7704 counter for a mint.",
+        "",
+        "At issuance, because a transfer hook cannot create an account — it has",
+        "no payer to sign for rent, and the transaction's fee payer is not among",
+        "the accounts the interface hands it. Window rollover is therefore a",
+        "reset in place, never a fresh account.",
+        "",
+        "Written for every offering, including the SPV wrappers that never touch",
+        "it: the metas list is a property of the program, so every transfer of",
+        "every gated mint carries this account, and one that did not exist would",
+        "fail account resolution on a transfer the hook was going to allow."
+      ],
+      "discriminator": [
+        93,
+        253,
+        154,
+        158,
+        34,
+        167,
+        232,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "offering_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ptp_counter",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  116,
+                  112,
+                  45,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "prove_eligibility",
+      "docs": [
+        "Carries an eligibility proof for the hook to find.",
+        "",
+        "A data carrier, deliberately. Token-2022 builds the `Execute` CPI itself",
+        "and its data is only the amount, so there is no way to hand the hook a",
+        "proof directly; the client prepends this and the hook introspects the",
+        "transaction for it.",
+        "",
+        "It validates nothing of consequence. The authoritative check is in",
+        "`execute`, against a leaf the hook computes itself from its own mint and",
+        "its own view of the token account owner — so a proof supplied here for",
+        "the wrong wallet or a fabricated one is not a hole, it simply fails to",
+        "reproduce the root when it matters."
+      ],
+      "discriminator": [
+        10,
+        222,
+        135,
+        112,
+        157,
+        174,
+        100,
+        160
+      ],
+      "accounts": [],
+      "args": [
+        {
+          "name": "holder",
+          "type": "pubkey"
+        },
+        {
+          "name": "proof",
+          "type": {
+            "vec": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "publish_eligibility_root",
+      "docs": [
+        "Publishes a new eligible-holder root.",
+        "",
+        "The only field of the config that changes on a schedule. `updated_at`",
+        "is supplied by the client rather than read from the cluster clock, so",
+        "the lag between computing a roster and landing the transaction counts",
+        "against the staleness bound — the conservative direction."
+      ],
+      "discriminator": [
+        80,
+        111,
+        83,
+        37,
+        242,
+        246,
+        214,
+        140
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "root_updated_at",
+          "type": "i64"
+        },
+        {
+          "name": "max_staleness_secs",
+          "type": "u32"
+        },
+        {
+          "name": "root_enforced",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "reanchor_ptp_window",
+      "docs": [
+        "Re-anchors the §7704 window, for an issuer whose taxable year is not",
+        "the calendar year. Windows step from the epoch in flat days, so moving",
+        "it moves every window boundary after it."
+      ],
+      "discriminator": [
+        30,
+        227,
+        218,
+        32,
+        245,
+        237,
+        86,
+        97
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "ptp_window_epoch",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "set_halted",
+      "docs": [
+        "Halts or resumes transfers for this offering.",
+        "",
+        "Local to this program. `ioniqx-title-compliance` (BUILD.md §2.5) owns",
+        "the authoritative halt for the asset itself; setting this does not set",
+        "that one."
+      ],
+      "discriminator": [
+        153,
+        114,
+        136,
+        116,
+        7,
+        134,
+        47,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "halted",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_redemption_marker",
+      "docs": [
+        "Marks a holder's next transfer of this mint as the redemption leg.",
+        "",
+        "Written when the holder's notice window opens, not when notice is",
+        "given: a marker standing for a whole notice period turns a redemption",
+        "gated to a date into one that can happen any time in the weeks before",
+        "it. `amount` caps what it authorises, so the notice the holder actually",
+        "gave is what constrains the burn."
+      ],
+      "discriminator": [
+        22,
+        247,
+        20,
+        229,
+        81,
+        10,
+        57,
+        245
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "holder",
+          "docs": [
+            "seed and as the marker's recorded holder."
+          ]
+        },
+        {
+          "name": "offering_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "redemption_marker",
+          "docs": [
+            "`init`, not `init_if_needed`. A holder has one live notice per offering,",
+            "so a marker already standing means the previous one was never cleared —",
+            "and silently overwriting it is precisely the failure this account exists",
+            "to prevent: an authorisation outliving the notice that justified it.",
+            "Clearing first is one more instruction and one fewer way to be wrong."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "holder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "settles_on",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "transfer_authority",
+      "docs": [
+        "Hands the offering config to a new authority."
+      ],
+      "discriminator": [
+        48,
+        169,
+        76,
+        72,
+        229,
+        180,
+        55,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "update_policy",
+      "docs": [
+        "Replaces the acceptance policy wholesale. Every field is restated, so a",
+        "caller cannot tighten one rule and leave a stale value behind in another."
+      ],
+      "discriminator": [
+        212,
+        245,
+        246,
+        7,
+        163,
+        151,
+        18,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "policy",
+          "type": {
+            "defined": {
+              "name": "OfferingPolicy"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_trust",
+      "docs": [
+        "Rotates the trusted credential and/or accepted schema (§2.7 Section 5).",
+        "",
+        "Takes effect on the next transfer with no reinitialization: the metas",
+        "account reads these fields when it resolves the attestation address.",
+        "Attestations issued under the old credential stop resolving at that",
+        "point, which is the intended behaviour — rotation is how a compromised",
+        "or retired issuer is cut off."
+      ],
+      "discriminator": [
+        227,
+        208,
+        83,
+        137,
+        94,
+        232,
+        129,
+        189
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "credential",
+          "type": "pubkey"
+        },
+        {
+          "name": "schema",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "OfferingConfig",
+      "discriminator": [
+        183,
+        215,
+        229,
+        217,
+        47,
+        135,
+        107,
+        204
+      ]
+    },
+    {
+      "name": "PtpCounter",
+      "discriminator": [
+        248,
+        11,
+        166,
+        125,
+        249,
+        73,
+        205,
+        118
+      ]
+    },
+    {
+      "name": "RedemptionMarker",
+      "discriminator": [
+        41,
+        106,
+        243,
+        53,
+        186,
+        234,
+        231,
+        99
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AuthorityTransferred",
+      "discriminator": [
+        245,
+        109,
+        179,
+        54,
+        135,
+        92,
+        22,
+        64
+      ]
+    },
+    {
+      "name": "EligibilityRootPublished",
+      "discriminator": [
+        97,
+        105,
+        138,
+        43,
+        13,
+        7,
+        145,
+        26
+      ]
+    },
+    {
+      "name": "HaltUpdated",
+      "discriminator": [
+        13,
+        74,
+        155,
+        171,
+        66,
+        175,
+        116,
+        30
+      ]
+    },
+    {
+      "name": "OfferingConfigInitialized",
+      "discriminator": [
+        30,
+        200,
+        154,
+        9,
+        69,
+        53,
+        177,
+        124
+      ]
+    },
+    {
+      "name": "PolicyUpdated",
+      "discriminator": [
+        225,
+        112,
+        112,
+        67,
+        95,
+        236,
+        245,
+        161
+      ]
+    },
+    {
+      "name": "RedemptionMarkerCleared",
+      "discriminator": [
+        165,
+        85,
+        68,
+        65,
+        235,
+        205,
+        153,
+        252
+      ]
+    },
+    {
+      "name": "RedemptionMarkerSet",
+      "discriminator": [
+        150,
+        91,
+        67,
+        35,
+        0,
+        28,
+        96,
+        251
+      ]
+    },
+    {
+      "name": "TrustUpdated",
+      "discriminator": [
+        98,
+        129,
+        42,
+        48,
+        228,
+        7,
+        55,
+        231
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Signer is not the offering-config authority"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidVerificationLevel",
+      "msg": "verification_level floor is outside the range defined by §2.7 Section 3.4"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidInvestorClass",
+      "msg": "accepted_classes contains a bit outside the §2.7 Section 3.3 enum"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidSchemaVersionRange",
+      "msg": "min_schema_version exceeds max_schema_version"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidUsPersonPolicy",
+      "msg": "us_person_policy is not a recognized value"
+    },
+    {
+      "code": 6005,
+      "name": "TooManyJurisdictions",
+      "msg": "Too many allowed jurisdictions for the account's fixed capacity"
+    },
+    {
+      "code": 6006,
+      "name": "NotTransferring",
+      "msg": "Execute was invoked outside a Token-2022 transfer"
+    },
+    {
+      "code": 6007,
+      "name": "MintMismatch",
+      "msg": "Token account belongs to a different mint than the one being transferred"
+    },
+    {
+      "code": 6008,
+      "name": "ConfigMintMismatch",
+      "msg": "Offering config is not configured for this mint"
+    },
+    {
+      "code": 6009,
+      "name": "AttestationNotOwnedBySas",
+      "msg": "Attestation account is not owned by the Solana Attestation Service"
+    },
+    {
+      "code": 6010,
+      "name": "NotAnAttestation",
+      "msg": "Account is not a SAS Attestation"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidTokenAccount",
+      "msg": "Account is not a Token-2022 token account"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidMintAccount",
+      "msg": "Account is not a Token-2022 mint"
+    },
+    {
+      "code": 6013,
+      "name": "MetasAccountMismatch",
+      "msg": "Extra-account-metas account is not the one derived for this mint"
+    },
+    {
+      "code": 6014,
+      "name": "AttestationMissing",
+      "msg": "No attestation exists for this wallet, or it was closed by the issuer"
+    },
+    {
+      "code": 6015,
+      "name": "AttestationMalformed",
+      "msg": "Attestation data does not match the QI schema layout"
+    },
+    {
+      "code": 6016,
+      "name": "UnsupportedSchemaVersion",
+      "msg": "Attestation schema_version is outside the range this offering supports"
+    },
+    {
+      "code": 6017,
+      "name": "SubjectMismatch",
+      "msg": "Attestation subject_wallet does not match the token account owner"
+    },
+    {
+      "code": 6018,
+      "name": "UntrustedCredential",
+      "msg": "Attestation was issued under a credential this offering does not trust"
+    },
+    {
+      "code": 6019,
+      "name": "UntrustedSchema",
+      "msg": "Attestation was issued under a schema this offering does not accept"
+    },
+    {
+      "code": 6020,
+      "name": "ClassNotAccepted",
+      "msg": "investor_class is not accepted by this offering"
+    },
+    {
+      "code": 6021,
+      "name": "VerificationLevelTooLow",
+      "msg": "verification_level is below the floor this offering requires"
+    },
+    {
+      "code": 6022,
+      "name": "JurisdictionNotAllowed",
+      "msg": "Holder jurisdiction is not on this offering's allow list"
+    },
+    {
+      "code": 6023,
+      "name": "UsPersonNotPermitted",
+      "msg": "This offering does not permit US persons"
+    },
+    {
+      "code": 6024,
+      "name": "NonUsPersonRequired",
+      "msg": "This offering requires a US person"
+    },
+    {
+      "code": 6025,
+      "name": "AttestationNonExpiring",
+      "msg": "Attestation has no expiry; §2.7 Section 3.1 forbids non-expiring QI attestations"
+    },
+    {
+      "code": 6026,
+      "name": "AttestationExpired",
+      "msg": "Attestation has expired"
+    },
+    {
+      "code": 6027,
+      "name": "AttestationRevoked",
+      "msg": "Attestation has been revoked by its issuer"
+    },
+    {
+      "code": 6028,
+      "name": "HolderCapExceeded",
+      "msg": "Transfer would put the recipient over the holder cap"
+    },
+    {
+      "code": 6029,
+      "name": "LockupNotElapsed",
+      "msg": "Offering lockup has not elapsed"
+    },
+    {
+      "code": 6030,
+      "name": "SeasoningNotElapsed",
+      "msg": "Reg S distribution-compliance period has not elapsed for US persons"
+    },
+    {
+      "code": 6031,
+      "name": "TradingHalted",
+      "msg": "Trading is halted for this offering"
+    },
+    {
+      "code": 6032,
+      "name": "InvalidStructureModel",
+      "msg": "Structure model is not one this program has a rule branch for"
+    },
+    {
+      "code": 6033,
+      "name": "InvalidPtpWindow",
+      "msg": "§7704 window parameters do not match the offering's structure model"
+    },
+    {
+      "code": 6034,
+      "name": "PtpLimitExceeded",
+      "msg": "Transfer would exceed the §7704 transfer limit for this window"
+    },
+    {
+      "code": 6035,
+      "name": "PtpCounterMismatch",
+      "msg": "The §7704 counter account is not the one derived for this mint"
+    },
+    {
+      "code": 6036,
+      "name": "EmptyEligibilityRoot",
+      "msg": "Eligibility root is enforced but empty, which would refuse every transfer"
+    },
+    {
+      "code": 6037,
+      "name": "UnboundedEligibilityRoot",
+      "msg": "An enforced eligibility root needs a staleness bound"
+    },
+    {
+      "code": 6038,
+      "name": "EligibilityRootStale",
+      "msg": "Eligibility root is older than this offering's staleness bound"
+    },
+    {
+      "code": 6039,
+      "name": "RedemptionWindowClosed",
+      "msg": "Redemption window is not open for this notice"
+    },
+    {
+      "code": 6040,
+      "name": "RedemptionAmountExceeded",
+      "msg": "Redemption exceeds the amount the holder gave notice for"
+    },
+    {
+      "code": 6041,
+      "name": "EligibilityProofInvalid",
+      "msg": "Eligibility proof does not reproduce this offering's root"
+    },
+    {
+      "code": 6042,
+      "name": "EligibilityProofTooLong",
+      "msg": "Eligibility proof is longer than this program will verify"
+    },
+    {
+      "code": 6043,
+      "name": "EligibilityProofMissing",
+      "msg": "No eligibility proof was supplied for a holder this offering gates on a roster"
+    },
+    {
+      "code": 6044,
+      "name": "RedemptionMarkerMismatch",
+      "msg": "Redemption marker is not the one derived for this mint and holder"
+    },
+    {
+      "code": 6045,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "AuthorityTransferred",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EligibilityGate",
+      "docs": [
+        "The roster gate: membership of one offering's eligible set, as a merkle",
+        "root the platform republishes as the roster moves.",
+        "",
+        "A second gate, not a replacement for attestation verification. The",
+        "attestation is what ioniqx asserts about a *wallet* and carries no mint;",
+        "this carries membership of *one offering*."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root_updated_at",
+            "docs": [
+              "When the root was computed off chain — sent by the client rather than",
+              "taken from the cluster clock, so the lag between computing a roster and",
+              "landing the transaction counts against the bound."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "max_staleness_secs",
+            "docs": [
+              "How stale a root may be before the hook stops trusting it. Without a",
+              "bound, a root nobody has refreshed keeps authorising a holder whose",
+              "eligibility lapsed between republications."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "root_enforced",
+            "docs": [
+              "False leaves this segment inert, which is how an offering is",
+              "provisioned before any roster exists."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EligibilityRootPublished",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "root_enforced",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HaltUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "halted",
+            "type": "bool"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OfferingConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "docs": [
+              "The mint this config governs. Also the config PDA's seed."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "credential",
+            "docs": [
+              "The single trusted SAS credential. Section 5 speaks of trusted",
+              "credential*s*, but the address of the attestation the hook reads is",
+              "derived from `[\"attestation\", credential, schema, wallet]`, and an",
+              "`ExtraAccountMetaList` declares one address per side. Supporting N",
+              "issuers would mean N declared slots and N resolutions on every",
+              "transfer. One pinned pair, rotatable by the authority, buys the same",
+              "trust property at a fraction of the compute.",
+              "",
+              "Rotation does not require re-initializing the metas account: the seeds",
+              "read these bytes at resolution time, so changing them changes the",
+              "derived address on the next transfer."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "schema",
+            "docs": [
+              "The single accepted QI schema UID. See `credential`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "May change trust configuration and policy. Section 5: \"Changing trusted",
+              "issuers is an authority-gated admin action, logged.\""
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "access_control",
+            "docs": [
+              "The `ioniqx-access-control` config this offering belongs to. Recorded",
+              "now, enforced later: admin gating moves to a TransferAdmin role read",
+              "once BUILD.md §2.1 is implemented. Until then `authority` is the gate."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "accepted_classes",
+            "docs": [
+              "Bitmask over `qi::investor_class`. Bit 0 (`NONE`) is never valid."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "min_verification_level",
+            "docs": [
+              "Floor from `qi::verification_level`. A 506(c) offering sets 2."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "min_schema_version",
+            "docs": [
+              "Inclusive schema-version window this offering accepts."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "max_schema_version",
+            "type": "u8"
+          },
+          {
+            "name": "us_person_policy",
+            "docs": [
+              "One of `qi::us_person_policy`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "two_sided",
+            "docs": [
+              "Validate the sender's attestation as well as the recipient's. Off by",
+              "default: a sender who received tokens through this hook was already",
+              "validated on the way in, and two-sided gating doubles the per-transfer",
+              "account resolution. Turn it on for offerings where holder eligibility",
+              "can lapse mid-hold and outbound transfers must also be blocked."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "halted",
+            "docs": [
+              "Local trading halt. `ioniqx-title-compliance` (BUILD.md §2.5) owns the",
+              "authoritative halt for the asset; this flag is the per-offering switch",
+              "the hook can read without a CPI. Halting here does not halt there."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "max_holding_basis",
+            "docs": [
+              "Recipient balance ceiling in basis points of supply. 0 disables.",
+              "",
+              "This is a *concentration* cap, not the Section 7 holder-*count* cap.",
+              "Counting beneficial holders needs a counter PDA the hook would have to",
+              "write to on every transfer, and Section 4.5 constrains `Execute` to",
+              "read-and-validate. Section 7 itself notes an on-chain holder count is",
+              "only an approximation to be reconciled off-chain; the 2,000/500",
+              "thresholds are enforced off-chain against the cap table, which is the",
+              "record that actually matters for an Exchange Act registration trigger."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tradable_after",
+            "docs": [
+              "Unix seconds before which no transfer is permitted. 0 disables."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "us_seasoning_until",
+            "docs": [
+              "Reg S distribution-compliance period: unix seconds before which",
+              "transfers *to US persons* are refused. 0 disables."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "jurisdiction_count",
+            "docs": [
+              "How many of `allowed_jurisdictions` are meaningful. 0 means no",
+              "jurisdiction constraint."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "allowed_jurisdictions",
+            "docs": [
+              "ISO 3166-1 numeric codes, zero-padded past `jurisdiction_count`.",
+              "",
+              "A fixed array rather than a `Vec`, so the account has no",
+              "variable-length member and every field after it sits at a constant",
+              "offset. The account was allocated for `MAX_JURISDICTIONS` either way."
+            ],
+            "type": {
+              "array": [
+                "u16",
+                16
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "metas_bump",
+            "docs": [
+              "Bump for this mint's `extra-account-metas` PDA, recorded when that",
+              "account is created. `Execute` verifies the metas account with one",
+              "`create_program_address` instead of a bump search; the interface fixes",
+              "the metas account at wire index 4, ahead of this config at index 5, so",
+              "an Anchor `seeds`/`bump` constraint on it cannot reach this field."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "structure",
+            "docs": [
+              "The offering's tax/vehicle structure, as a rule branch plus parameters."
+            ],
+            "type": {
+              "defined": {
+                "name": "StructureBranch"
+              }
+            }
+          },
+          {
+            "name": "eligibility",
+            "docs": [
+              "The eligible-holder roster gate."
+            ],
+            "type": {
+              "defined": {
+                "name": "EligibilityGate"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OfferingConfigInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "credential",
+            "type": "pubkey"
+          },
+          {
+            "name": "schema",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OfferingPolicy",
+      "docs": [
+        "The policy half of a config update, kept as one argument so a caller cannot",
+        "set half the policy and leave the rest at whatever it was — every field is",
+        "restated on every update, and validated together."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "accepted_classes",
+            "type": "u16"
+          },
+          {
+            "name": "min_verification_level",
+            "type": "u8"
+          },
+          {
+            "name": "min_schema_version",
+            "type": "u8"
+          },
+          {
+            "name": "max_schema_version",
+            "type": "u8"
+          },
+          {
+            "name": "us_person_policy",
+            "type": "u8"
+          },
+          {
+            "name": "two_sided",
+            "type": "bool"
+          },
+          {
+            "name": "max_holding_basis",
+            "type": "u64"
+          },
+          {
+            "name": "tradable_after",
+            "type": "i64"
+          },
+          {
+            "name": "us_seasoning_until",
+            "type": "i64"
+          },
+          {
+            "name": "jurisdiction_count",
+            "type": "u8"
+          },
+          {
+            "name": "allowed_jurisdictions",
+            "type": {
+              "array": [
+                "u16",
+                16
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PolicyUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "accepted_classes",
+            "type": "u16"
+          },
+          {
+            "name": "min_verification_level",
+            "type": "u8"
+          },
+          {
+            "name": "us_person_policy",
+            "type": "u8"
+          },
+          {
+            "name": "two_sided",
+            "type": "bool"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PtpCounter",
+      "docs": [
+        "The §7704 accumulator — the hook's only write.",
+        "",
+        "One per mint, created at issuance because a transfer hook cannot create an",
+        "account: it has no payer to sign for rent, and the transaction's fee payer",
+        "is not among the accounts the interface hands it. Window rollover is",
+        "therefore a reset in place, never a fresh account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "window_index",
+            "docs": [
+              "Which window `transferred` belongs to. A transfer in a later window",
+              "resets the total before adding to it."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "transferred",
+            "docs": [
+              "Base units moved in that window so far."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionMarker",
+      "docs": [
+        "A holder's standing authorisation to run the redemption leg.",
+        "",
+        "Token-2022 calls the hook identically for every transfer, so without this",
+        "the hook cannot tell a redemption from an ordinary transfer — and the two",
+        "have different rules. Written when the holder's window opens and cleared",
+        "after the burn, because an authorisation that outlives its notice is a",
+        "second redemption nobody asked for."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "docs": [
+              "The wallet whose redemption leg this authorises."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "The cap. Without it the marker authorises any quantity and the notice",
+              "the holder gave stops constraining the burn."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settles_on",
+            "docs": [
+              "The date the notice was scheduled to settle."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionMarkerCleared",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionMarkerSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "settles_on",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StructureBranch",
+      "docs": [
+        "The structure branch — which of the two rule sets this offering runs, and",
+        "the parameters that rule set needs.",
+        "",
+        "`direct_member` makes the token holder a partner of the vehicle, which puts",
+        "§7704 publicly-traded-partnership exposure in play: interests transferred",
+        "in a taxable year are capped, and that cap has to be enforced rather than",
+        "merely disclosed. `spv_wrapper` contains that exposure at the SPV boundary,",
+        "so its whole branch is zeroed and the hook skips it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "model",
+            "docs": [
+              "One of `structure_model`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "partner_eligibility_gate",
+            "docs": [
+              "Gate transfers on tax-partner eligibility as well as securities",
+              "eligibility. `direct_member` only."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "ptp_enabled",
+            "docs": [
+              "Enforce the §7704 transfer cap. Must be false for `spv_wrapper`."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "ptp_window_days",
+            "docs": [
+              "Length of a §7704 window in days. 365 is the taxable year."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "ptp_max_transfer_basis",
+            "docs": [
+              "Cap on interests transferred per window, in basis points of supply.",
+              "200 is the statutory 2%."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "ptp_window_epoch",
+            "docs": [
+              "Unix seconds the first window opens at — January 1 of the taxable year",
+              "the offering opened in. Windows step from here in flat days, which",
+              "drifts a little across leap years; immaterial to a cap, and cheaper",
+              "than a write every year to stay aligned."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "notice_period_days",
+            "docs": [
+              "Days of notice a holder must give before redeeming."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "cycle_len_days",
+            "docs": [
+              "Nominal cycle length. A bound the hook can reason about, not the date."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "next_valid_redemption_at",
+            "docs": [
+              "The next date a redemption may settle, as unix seconds. Computed off",
+              "chain against a real calendar and advanced by the authority each cycle:",
+              "a month is not a fixed number of days, and stepping flat days here",
+              "would drift the settlement date away from the one holders were told."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TrustUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "credential",
+            "type": "pubkey"
+          },
+          {
+            "name": "schema",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -9,7 +9,18 @@ reimplement any of it. It adds only the layer the kit has no notion of:
 
 1. **Anchor instruction discriminators** — `sha256("global:<name>")[0,8]`.
 2. **IDL → instruction mapping** — arg codecs and ordered account metas, driven
-   off the IDLs committed in `idl/`.
+   off the IDLs committed in `idl/`. Emitted by `anchor idl build` in
+   ioniqx-rwa; refresh with:
+
+   ```
+   cd ../ioniqx-rwa && anchor idl build -p ioniqx-transfer-restrictions \
+     > ../ioniqx-rwa-client/idl/ioniqx_transfer_restrictions.json
+   ```
+
+   `spec/idl_agreement_spec.rb` holds the gem's hand-written constants — the
+   `prove_eligibility` discriminator and the hook's error numbers — against it,
+   so a stale IDL surfaces as a failing spec rather than as a transfer that
+   fails for a reason nobody can name.
 3. **Transfer-hook `ExtraAccountMetaList` resolution** — `extra_account_metas.rb`.
 4. **Thin instruction builders** for the five ioniqx programs.
 5. **Classification reader** — read-side sRFC RWA classification metadata and
