@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.description           = "Anchor instruction builders and a Token-2022 transfer-hook " \
                                "ExtraAccountMetaList resolver for the ioniqx RWA program suite, " \
                                "built on top of solana-ruby-kit."
-  spec.homepage              = "https://github.com/pzupan/ioniqx-rwa-client"
+  spec.homepage              = "https://github.com/idhra/ioniqx-rwa-client"
   spec.license               = "Apache-2.0"
   spec.required_ruby_version = ">= 3.2.0"
   spec.require_paths         = ["lib"]
