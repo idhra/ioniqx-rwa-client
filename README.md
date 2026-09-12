@@ -14,6 +14,57 @@ reimplement any of it. It adds only the layer the kit has no notion of:
 4. **Thin instruction builders** for the five ioniqx programs.
 5. **Classification reader** — read-side sRFC RWA classification metadata and
    attestation parsing. Descriptive only; never consulted for authorization.
+6. **Eligibility proofs** — `prove_eligibility` carriers for offerings that gate
+   transfers on an eligible-holder set, plus the reader that says whether a
+   given mint needs one.
+7. **Hook error explanations** — the hook's custom program errors as sentences,
+   including which of them are the caller's to fix and which are transient.
+
+## Transfers that need an eligibility proof
+
+Some offerings gate transfers on a merkle root of eligible holders as well as on
+each holder's attestation. For those, a `TransferChecked` alone is refused with
+`EligibilityProofMissing` — an error naming nothing about proofs.
+
+The proof cannot ride on the transfer: Token-2022 builds the hook's CPI itself
+and its data is the amount and nothing else. It travels as its own *prepended*
+instruction, and the hook introspects the transaction for it.
+
+```ruby
+client = IoniqxRwa::Transfer.new(rpc)
+
+gate = client.eligibility_gate(mint: mint)
+proofs =
+  if gate&.proof_required?
+    # From whoever published the root. For ioniqx-issued tokens that is
+    # GET /eligibility/:mint/:wallet on the issuing platform.
+    { recipient_wallet => fetch_proof(mint, recipient_wallet) }
+  else
+    {}
+  end
+
+instructions = client.transfer_instructions(
+  mint: mint, source: source, destination: destination,
+  authority: authority, amount: amount, proofs: proofs
+)
+```
+
+An **empty proof array is a valid proof** — a one-holder roster makes the leaf
+the root — so pass `[]` rather than skipping the entry.
+
+A proof is public data, not a credential: the hook computes the leaf itself from
+its own mint and its own view of the token account owner, and only the sibling
+hashes come from the client. It can be fetched over plain HTTP and cached.
+
+When a transfer is rejected anyway:
+
+```ruby
+IoniqxRwa::HookErrors.explain_log(logs.join("\n"))
+#=> #<Explanation code: 6041, name: :EligibilityProofInvalid, action: :retry, ...>
+```
+
+`action` is `:fix` (the transaction was built wrong), `:retry` (the state moved
+under you — re-read and resend) or `:refused` (the offering says no).
 
 ## Status
 

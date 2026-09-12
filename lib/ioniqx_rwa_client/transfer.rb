@@ -142,6 +142,80 @@ module IoniqxRwa
       )
     end
 
+    # Every instruction a hook-gated transfer needs, in the order they must be
+    # sent.
+    #
+    # `transfer_checked` alone is enough for an offering that gates on holder
+    # attestations. It is *not* enough for one that also gates on an
+    # eligible-holder set: the hook looks for a proof earlier in the same
+    # transaction and refuses with `EligibilityProofMissing` when there is none.
+    # A caller who builds only the transfer gets a rejected transaction whose
+    # error names nothing about proofs.
+    #
+    # So this is the method to route through when the mint might be gated, for
+    # the same reason `transfer_checked` exists rather than a plain
+    # TransferChecked: the thing every wallet, custodian and venue has to
+    # remember belongs in a library once, not in each of them.
+    #
+    # @param proofs [Hash{String => Array<String>}] holder wallet => sibling
+    #   hashes. The hook matches a proof to the holder it names, so a two-sided
+    #   offering carries two. An **empty array is a valid proof** — a
+    #   one-holder roster makes the leaf the root — so pass `[]`, not nil, for
+    #   a sole holder.
+    # @return [Array<Solana::Ruby::Kit::Instructions::Instruction>] proofs
+    #   first, then the transfer. Prepended because the hook scans only the
+    #   instructions before the one executing; a proof after the transfer has
+    #   not been seen by the runtime when the hook runs.
+    def transfer_instructions(mint:, source:, destination:, authority:, amount:,
+                              proofs: {}, decimals: nil, hook_program_id: nil,
+                              token_program_id: nil, mint_info: nil)
+      info = mint_info
+      info ||= self.mint_info(mint) if decimals.nil? || hook_program_id.nil? || token_program_id.nil?
+      hook = hook_program_id || info&.hook_program_id
+
+      if hook.nil? && !proofs.empty?
+        raise TransferError, "mint #{mint} declares no transfer hook, so it has nothing to prove eligibility to"
+      end
+
+      carriers = proofs.map do |holder, proof|
+        Eligibility.prove(hook_program_id: hook, holder: holder, proof: proof)
+      end
+
+      carriers + [ transfer_checked(
+        mint: mint, source: source, destination: destination, authority: authority,
+        amount: amount, decimals: decimals, hook_program_id: hook_program_id,
+        token_program_id: token_program_id, mint_info: info
+      ) ]
+    end
+
+    # Whether this mint's offering gates transfers on an eligible-holder set,
+    # and what its root looks like.
+    #
+    # Worth asking before building a transfer: the answer decides whether
+    # `proofs:` is required, and the alternative is finding out from a rejected
+    # transaction.
+    #
+    # @return [IoniqxRwa::Eligibility::Gate, nil] nil when the mint declares no
+    #   hook, or the hook has no offering config — neither is an error, both
+    #   mean "no roster gate here".
+    def eligibility_gate(mint:, hook_program_id: nil, mint_info: nil)
+      hook = hook_program_id || (mint_info || self.mint_info(mint)).hook_program_id
+      return nil if hook.nil?
+
+      address = Eligibility.config_address(mint: mint, hook_program_id: hook)
+      # A hook with no offering config is a mint that was pointed at the
+      # program and never configured. Every transfer of it fails in account
+      # resolution anyway, so "no roster gate" is the right answer here and the
+      # transfer is where it surfaces.
+      data, = begin
+        fetch_account!(address)
+      rescue TransferError
+        return nil
+      end
+
+      Eligibility.gate_from_config(data)
+    end
+
     # The transfer hook program a mint points at, or nil if it declares none.
     #
     # A mint created without the TransferHook extension can never gain one —

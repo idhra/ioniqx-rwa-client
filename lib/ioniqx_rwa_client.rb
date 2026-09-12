@@ -7,6 +7,8 @@ require_relative "ioniqx_rwa_client/version"
 require_relative "ioniqx_rwa_client/errors"
 require_relative "ioniqx_rwa_client/config"
 require_relative "ioniqx_rwa_client/extra_account_metas"
+require_relative "ioniqx_rwa_client/eligibility"
+require_relative "ioniqx_rwa_client/hook_errors"
 require_relative "ioniqx_rwa_client/transfer"
 require_relative "ioniqx_rwa_client/classification"
 
