@@ -69,7 +69,10 @@ module IoniqxRwa
       MAX_STALENESS_SECS = 302
       ROOT_ENFORCED      = 306
       STRUCTURE_MODEL    = 235
-      ACCOUNT_LEN        = 307
+      # The wallet a redemption leg must move tokens to. Appended after the
+      # gate, so every offset above is unchanged by it.
+      REDEMPTION_TREASURY = 307
+      ACCOUNT_LEN        = 339
     end
 
     # What an offering's config says about its roster gate.

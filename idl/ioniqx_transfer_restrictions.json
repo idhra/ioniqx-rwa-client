@@ -491,6 +491,10 @@
         {
           "name": "halted",
           "type": "bool"
+        },
+        {
+          "name": "redemption_treasury",
+          "type": "pubkey"
         }
       ]
     },
@@ -989,6 +993,80 @@
       ]
     },
     {
+      "name": "set_redemption_treasury",
+      "docs": [
+        "Names (or renames) the wallet a redemption leg must move tokens to.",
+        "",
+        "Separate from `initialize_offering_config` so an offering issued before",
+        "its treasury existed can be given one, and so a compromised treasury can",
+        "be replaced without reissuing the mint. Narrow on purpose: this is the",
+        "one account the hook will let a redemption leg reach without any",
+        "recipient-side check, so changing it is worth its own audit trail.",
+        "",
+        "`Pubkey::default()` withdraws it, which refuses every redemption leg for",
+        "the offering. That is the safe direction — a redemption with nowhere",
+        "pinned to go must not fall back to an ordinary transfer."
+      ],
+      "discriminator": [
+        211,
+        131,
+        175,
+        180,
+        81,
+        67,
+        34,
+        30
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "offering_config"
+          ]
+        },
+        {
+          "name": "offering_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "offering_config.mint",
+                "account": "OfferingConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "transfer_authority",
       "docs": [
         "Hands the offering config to a new authority."
@@ -1330,6 +1408,19 @@
       ]
     },
     {
+      "name": "RedemptionTreasurySet",
+      "discriminator": [
+        13,
+        148,
+        207,
+        244,
+        193,
+        226,
+        152,
+        171
+      ]
+    },
+    {
       "name": "TrustUpdated",
       "discriminator": [
         98,
@@ -1571,6 +1662,16 @@
     },
     {
       "code": 6045,
+      "name": "RedemptionDestinationNotTreasury",
+      "msg": "A redemption leg must move tokens to this offering's redemption treasury"
+    },
+    {
+      "code": 6046,
+      "name": "NoRedemptionTreasury",
+      "msg": "This offering has no redemption treasury, so no redemption can settle"
+    },
+    {
+      "code": 6047,
       "name": "Overflow",
       "msg": "Arithmetic overflow"
     }
@@ -1891,6 +1992,27 @@
                 "name": "EligibilityGate"
               }
             }
+          },
+          {
+            "name": "redemption_treasury",
+            "docs": [
+              "The wallet a redemption leg must move tokens to — the issuer's own",
+              "treasury, which then burns them.",
+              "",
+              "A redemption cannot be an ordinary transfer: the treasury holds no QI",
+              "attestation, is not on the roster, and would breach any concentration",
+              "cap as redemptions accumulate in it. So the hook skips the",
+              "recipient-side checks for this leg — and that is exactly why the",
+              "destination is pinned here rather than merely exempted. Exempting the",
+              "destination without naming it would let anyone holding a marker send to",
+              "any address at all, turning a redemption authorisation into a way out",
+              "of the roster.",
+              "",
+              "`Pubkey::default()` means no treasury, and the hook refuses every",
+              "redemption leg for such an offering rather than falling back to",
+              "treating it as an ordinary transfer."
+            ],
+            "type": "pubkey"
           }
         ]
       }
@@ -2140,6 +2262,22 @@
       }
     },
     {
+      "name": "RedemptionTreasurySet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "StructureBranch",
       "docs": [
         "The structure branch — which of the two rule sets this offering runs, and",
@@ -2218,10 +2356,19 @@
           {
             "name": "next_valid_redemption_at",
             "docs": [
-              "The next date a redemption may settle, as unix seconds. Computed off",
-              "chain against a real calendar and advanced by the authority each cycle:",
-              "a month is not a fixed number of days, and stepping flat days here",
-              "would drift the settlement date away from the one holders were told."
+              "The next date a redemption may settle, as unix seconds, at the time this",
+              "offering was configured.",
+              "",
+              "**Informational. The hook does not read it.** It used to be the window",
+              "gate, and as a gate it failed open: nothing advances it, so once the",
+              "issued date passed `now >= next_valid_redemption_at` was true forever",
+              "and the cycle stopped being enforced from its second window onward. The",
+              "enforced date is now `RedemptionMarker::settles_on`, which is written",
+              "per notice and carries the date the holder was actually told — so there",
+              "is no longer anything to advance.",
+              "",
+              "Kept because it states the offering's cycle on chain, which is a",
+              "disclosure worth having. Do not gate on it."
             ],
             "type": "i64"
           }
