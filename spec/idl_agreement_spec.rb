@@ -65,6 +65,7 @@ RSpec.describe "IDL agreement" do
     reachable = %w[
       PtpLimitExceeded EligibilityRootStale RedemptionWindowClosed
       RedemptionAmountExceeded EligibilityProofInvalid EligibilityProofMissing
+      RedemptionDestinationNotTreasury NoRedemptionTreasury
     ]
     explained = IoniqxRwa::HookErrors::ERRORS.values.map { |(name, _, _)| name.to_s }
 

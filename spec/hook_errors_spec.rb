@@ -41,6 +41,25 @@ RSpec.describe IoniqxRwa::HookErrors do
     expect(described_class.explain(6039).action).to eq(:refused)
   end
 
+  # Reached by an ordinary trade, not just a malformed redemption: a standing
+  # marker pins every transfer out of the wallet to the treasury. Observed on
+  # devnet as 0x179d. The caller cannot fix it, so the message says when it ends.
+  it "explains a transfer blocked by a redemption in progress" do
+    explained = described_class.explain_log("custom program error: 0x179d")
+
+    expect(explained.name).to eq(:RedemptionDestinationNotTreasury)
+    expect(explained.action).to eq(:refused)
+    expect(explained.message).to match(/settles or lapses/)
+  end
+
+  it "says a missing treasury is the issuer's to fix" do
+    explained = described_class.explain(6046)
+
+    expect(explained.name).to eq(:NoRedemptionTreasury)
+    expect(explained.action).to eq(:refused)
+    expect(explained.message).to match(/Only the issuer/)
+  end
+
   describe ".explain" do
     it "reads the hex form a validator log prints" do
       expect(described_class.explain("0x179b").name).to eq(:EligibilityProofMissing)

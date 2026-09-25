@@ -47,7 +47,19 @@ module IoniqxRwa
                 "Prepend IoniqxRwa::Eligibility.prove for the recipient — and for the sender too if " \
                 "the offering is two-sided." ],
       6044 => [ :RedemptionMarkerMismatch, :fix,
-                "The redemption marker account is not the one derived for this mint and holder." ]
+                "The redemption marker account is not the one derived for this mint and holder." ],
+      # The sender has given redemption notice and its window is open, so the
+      # hook treats every transfer out of that wallet as the redemption leg.
+      # Hit by any ordinary trade from the wallet, not only by a malformed
+      # redemption — which is why the message says when it ends.
+      6045 => [ :RedemptionDestinationNotTreasury, :refused,
+                "The sender has a redemption notice in progress for this offering, and until it " \
+                "settles or lapses every transfer out of that wallet must go to the offering's " \
+                "redemption treasury. Complete the redemption, or wait for the notice to end." ],
+      6046 => [ :NoRedemptionTreasury, :refused,
+                "The sender has a redemption notice in progress, but this offering has no " \
+                "redemption treasury configured, so no redemption can settle. Only the issuer " \
+                "can fix this." ]
     }.freeze
 
     Explanation = Struct.new(:code, :name, :action, :message, keyword_init: true) do
