@@ -800,6 +800,103 @@
       ]
     },
     {
+      "name": "record_off_chain_transfers",
+      "docs": [
+        "Counts transfers that settled off chain against the §7704 cap.",
+        "",
+        "Moves between beneficial owners inside one omnibus custodian never",
+        "touch the chain, so the hook never sees them, yet they are transfers of",
+        "partnership interests like any other. The platform reports them here as",
+        "it books them, and they land in the same running total the hook keeps —",
+        "so a later on-chain transfer sees what is really left of the year's cap,",
+        "and an off-chain one that would exceed it is refused here first."
+      ],
+      "discriminator": [
+        65,
+        220,
+        57,
+        36,
+        24,
+        63,
+        108,
+        223
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "offering_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  105,
+                  110,
+                  103,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ptp_counter",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  116,
+                  112,
+                  45,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "set_halted",
       "docs": [
         "Halts or resumes transfers for this offering.",
@@ -1674,6 +1771,11 @@
       "code": 6047,
       "name": "Overflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6048,
+      "name": "PtpNotEnabled",
+      "msg": "This offering has no §7704 transfer cap to record transfers against"
     }
   ],
   "types": [
