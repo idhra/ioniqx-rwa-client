@@ -489,7 +489,7 @@ module IoniqxRwa
 
       # ---- Layer 3 - discovery -------------------------------------------
 
-      # Parse and structurally validate a `.well-known/rwa.json` document
+      # Parse and structurally validate a `.well-known/rwa/<mint>.json` document
       # (draft §4.2). Structure only - call {verify_discovery_document} before
       # trusting the contents.
       def parse_discovery_document(raw, mint:, now: nil)
