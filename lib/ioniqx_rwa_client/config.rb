@@ -11,12 +11,19 @@ module IoniqxRwa
     # instruction to it, the runtime reports an account that does not exist,
     # and nothing in that failure says the program was never there.
     #
-    # The transfer hook is live on devnet and is what the LiteSVM suite loads
-    # on localnet. The other four ioniqx programs have addresses reserved in
+    # Every release of the transfer hook is its own immutable program, and a
+    # mint calls whichever version its issuer moved it to (ioniqx-app
+    # docs/HOOK_VERSIONING.md). So the transfer path reads the hook program
+    # off the mint and never from here; this is a default for callers that
+    # have no mint in hand.
+    #
+    # Devnet runs version 1 (2TYj…) until version 2 is released there.
+    # Localnet is what the LiteSVM suite loads: version 2 (7qoa…), the
+    # current build. The other four ioniqx programs have addresses reserved in
     # ioniqx-rwa's Anchor.toml and are deployed nowhere, so they are not here.
     PROGRAM_IDS = {
       localnet: {
-        transfer_restrictions: "2TYjyHt3XKoHJ7q217YLGiz1sCHYiLD64sioJqfQuWPK"
+        transfer_restrictions: "7qoaEJk1Yekagotv3roc4qNiJWk3aeA1fUFGMEUqaVs8"
       },
       devnet: {
         transfer_restrictions: "2TYjyHt3XKoHJ7q217YLGiz1sCHYiLD64sioJqfQuWPK"

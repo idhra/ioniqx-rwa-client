@@ -9,18 +9,24 @@ reimplement any of it. It adds only the layer the kit has no notion of:
 
 1. **Anchor instruction discriminators** — `sha256("global:<name>")[0,8]`.
 2. **IDL → instruction mapping** — arg codecs and ordered account metas, driven
-   off the IDLs committed in `idl/`. Emitted by `anchor idl build` in
-   ioniqx-rwa; refresh with:
+   off the IDLs committed in `idl/`. Every release of the transfer hook is its
+   own immutable program, so there is one IDL per version:
+   `ioniqx_transfer_restrictions_v1.json` (`2TYj…`, live on devnet) and
+   `_v2.json` (`7qoa…`, the current build). Emitted by `anchor idl build` in
+   ioniqx-rwa; refresh the current version with:
 
    ```
    cd ../ioniqx-rwa && anchor idl build -p ioniqx-transfer-restrictions \
-     > ../ioniqx-rwa-client/idl/ioniqx_transfer_restrictions.json
+     > ../ioniqx-rwa-client/idl/ioniqx_transfer_restrictions_v2.json
    ```
 
+   A released version never changes, so its IDL is never refreshed; a new
+   version gets a new file.
+
    `spec/idl_agreement_spec.rb` holds the gem's hand-written constants — the
-   `prove_eligibility` discriminator and the hook's error numbers — against it,
-   so a stale IDL surfaces as a failing spec rather than as a transfer that
-   fails for a reason nobody can name.
+   `prove_eligibility` discriminator and the hook's error numbers — against
+   every version, so a stale IDL surfaces as a failing spec rather than as a
+   transfer that fails for a reason nobody can name.
 3. **Transfer-hook `ExtraAccountMetaList` resolution** — `extra_account_metas.rb`.
 4. **Thin instruction builders** for the five ioniqx programs.
 5. **Classification reader** — read-side sRFC RWA classification metadata and
@@ -81,8 +87,10 @@ under you — re-read and resend) or `:refused` (the offering says no).
 
 **Unaudited. Not for production.** See [SECURITY.md](SECURITY.md).
 
-The five Anchor programs are not yet deployed to a public cluster, so `idl/` is
-empty and `Config::PROGRAM_IDS` is unpopulated. Hook-aware transfer
+Of the five Anchor programs only the transfer hook is deployed, on devnet, so
+`Config::PROGRAM_IDS` names nothing else and nothing on mainnet. The hook
+program a transfer calls is always read off the mint, since a mint may be on
+any released version; the configured id is only a default. Hook-aware transfer
 construction, the transfer-hook resolver, and the classification reader are
 complete, with specs that run offline — including one pinned against an account
 list `ioniqx-transfer-restrictions` itself produced and Token-2022 accepted.
